@@ -36,9 +36,9 @@ class LossChecker:
 
 def parse_batch(batch):
     vids, feats, captions = batch
-    feats = [ feat.cuda() for feat in feats ]
+    feats = [ feat for feat in feats ]
     feats = torch.cat(feats, dim=2)
-    captions = captions.long().cuda()
+    captions = captions.long()
     return vids, feats, captions
 
 
@@ -282,6 +282,6 @@ def save_result(vid2pred, vid2GTs, save_fpath):
         for vid in vids:
             GTs = ' / '.join(vid2GTs[vid])
             pred = vid2pred[vid]
-            line = ', '.join([ str(vid), pred, GTs ])
+            line = ', '.join([ str(vid), pred ])
             fout.write("{}\n".format(line))
 

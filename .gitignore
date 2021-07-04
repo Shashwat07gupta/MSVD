@@ -14,5 +14,5 @@ summary/
 pretrained_models/
 
 pycocoevalcap
-data
+data/MSVD/
 .env

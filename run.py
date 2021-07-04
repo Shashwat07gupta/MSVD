@@ -14,7 +14,7 @@ from models.caption_generator import CaptionGenerator
 
 
 def run(ckpt_fpath):
-    checkpoint = torch.load(ckpt_fpath)
+    checkpoint = torch.load(ckpt_fpath,map_location='cpu')
 
     """ Load Config """
     config = dict_to_cls(checkpoint['config'])
@@ -66,7 +66,7 @@ def run(ckpt_fpath):
         reconstructor.load_state_dict(checkpoint['reconstructor'])
 
     model = CaptionGenerator(decoder, reconstructor, config.loader.max_caption_len, vocab)
-    model = model.cuda()
+   # model = model.cuda()
 
     '''
     """ Train Set """
@@ -85,8 +85,8 @@ def run(ckpt_fpath):
     """ Test Set """
     test_vid2pred = get_predicted_captions(test_iter, model, model.vocab, beam_width=5, beam_alpha=0.)
     test_vid2GTs = get_groundtruth_captions(test_iter, model.vocab)
-    test_scores = score(test_vid2pred, test_vid2GTs)
-    print("[TEST] {}".format(test_scores))
+   # test_scores = score(test_vid2pred, test_vid2GTs)
+    #print("[TEST] {}".format(test_scores))
 
     test_save_fpath = os.path.join(C.result_dpath, "{}_{}.csv".format(config.corpus, 'test'))
     save_result(test_vid2pred, test_vid2GTs, test_save_fpath)

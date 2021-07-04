@@ -17,26 +17,26 @@ class CaptionGenerator(nn.Module):
     def get_rnn_init_hidden(self, batch_size, num_layers, num_directions, hidden_size):
         if self.decoder.rnn_type == 'LSTM':
             hidden = (
-                torch.zeros(num_layers * num_directions, batch_size, hidden_size).cuda(),
-                torch.zeros(num_layers * num_directions, batch_size, hidden_size).cuda())
+                torch.zeros(num_layers * num_directions, batch_size, hidden_size),
+                torch.zeros(num_layers * num_directions, batch_size, hidden_size))
         else:
             hidden = torch.zeros(num_layers * num_directions, batch_size, hidden_size)
-            hidden = hidden.cuda()
+            hidden = hidden
         return hidden
 
     def forward_decoder(self, batch_size, vocab_size, hidden, feats, captions, teacher_forcing_ratio):
-        outputs = Variable(torch.zeros(self.max_caption_len + 2, batch_size, vocab_size)).cuda()
+        outputs = Variable(torch.zeros(self.max_caption_len + 2, batch_size, vocab_size))
         D, B, H = (hidden[0] if self.decoder.rnn_type == 'LSTM' else hidden).shape
-        hidden_states = Variable(torch.zeros(self.max_caption_len + 2, D, B, H )).cuda()
+        hidden_states = Variable(torch.zeros(self.max_caption_len + 2, D, B, H ))
 
-        output = Variable(torch.cuda.LongTensor(1, batch_size).fill_(self.vocab.word2idx['<SOS>']))
+        output = Variable(torch.LongTensor(1, batch_size).fill_(self.vocab.word2idx['<SOS>']))
         for t in range(1, self.max_caption_len + 2):
             output, hidden, attn_weights = self.decoder(output.view(1, -1), hidden, feats)
             outputs[t] = output
             hidden_states[t] = hidden[0] if self.decoder.rnn_type == 'LSTM' else hidden
             is_teacher = random.random() < teacher_forcing_ratio
             top1 = output.data.max(1)[1]
-            output = Variable(captions.data[t] if is_teacher else top1).cuda()
+            output = Variable(captions.data[t] if is_teacher else top1)
         return outputs, hidden_states
 
     @property
@@ -48,7 +48,7 @@ class CaptionGenerator(nn.Module):
 
     def forward_global_reconstructor(self, batch_size, decoder_hiddens, caption_masks):
         def mean_pool_hiddens(hiddens, caption_masks):
-            caption_lens = caption_masks.sum(dim=0).type(torch.cuda.FloatTensor)
+            caption_lens = caption_masks.sum(dim=0).type(torch.FloatTensor)
             caption_masks = caption_masks.unsqueeze(2).expand_as(hiddens).type_as(hiddens)
             hiddens_masked = caption_masks * hiddens
             hiddens_mean_pooled = hiddens_masked.sum(dim=0) / \
@@ -64,7 +64,7 @@ class CaptionGenerator(nn.Module):
         decoder_hiddens_mean_pooled = mean_pool_hiddens(decoder_hiddens, caption_masks)
 
         feats_recons = Variable(torch.zeros(self.max_caption_len + 2, batch_size, self.reconstructor.hidden_size))
-        feats_recons = feats_recons.cuda()
+        feats_recons = feats_recons
         hidden = self.get_rnn_init_hidden(batch_size, self.reconstructor.num_layers, self.reconstructor.num_directions,
                                           self.reconstructor.hidden_size)
         for t in range(self.max_caption_len + 2):
@@ -82,7 +82,7 @@ class CaptionGenerator(nn.Module):
             decoder_hiddens.size(2) * decoder_hiddens.size(3)) # B, T, H
 
         feats_recons = Variable(torch.zeros(self.decoder.feat_len, batch_size, self.reconstructor.hidden_size))
-        feats_recons = feats_recons.cuda()
+        feats_recons = feats_recons
         hidden = self.get_rnn_init_hidden(batch_size, self.reconstructor.num_layers, self.reconstructor.num_directions,
                                           self.reconstructor.hidden_size)
         for t in range(self.decoder.feat_len):
@@ -103,7 +103,7 @@ class CaptionGenerator(nn.Module):
         if captions is None:
             _, captions = outputs.max(dim=2)
         caption_masks = (captions != self.vocab.word2idx['<PAD>']) * (captions != self.vocab.word2idx['<EOS>'])
-        caption_masks = caption_masks.cuda()
+        caption_masks = caption_masks
         feats_recon = None
         if self.reconstructor is not None:
             feats_recon = self.forward_reconstructor(batch_size, decoder_hiddens, caption_masks)
@@ -120,9 +120,9 @@ class CaptionGenerator(nn.Module):
         hidden = self.get_rnn_init_hidden(batch_size, self.decoder.num_layers, self.decoder.num_directions,
                                           self.decoder.hidden_size)
 
-        input_list = [ torch.cuda.LongTensor(1, batch_size).fill_(self.vocab.word2idx['<SOS>']) ]
+        input_list = [ torch.LongTensor(1, batch_size).fill_(self.vocab.word2idx['<SOS>']) ]
         hidden_list = [ hidden ]
-        cum_prob_list = [ torch.ones(batch_size).cuda() ]
+        cum_prob_list = [ torch.ones(batch_size) ]
         cum_prob_list = [ torch.log(cum_prob) for cum_prob in cum_prob_list ]
         EOS_idx = self.vocab.word2idx['<EOS>']
 
@@ -142,7 +142,7 @@ class CaptionGenerator(nn.Module):
 
                 caption_list = [ output_list[b][i] for b in range(batch_size)]
                 EOS_mask = [ 0. if EOS_idx in [ idx.item() for idx in caption ] else 1. for caption in caption_list ]
-                EOS_mask = torch.cuda.FloatTensor(EOS_mask)
+                EOS_mask = torch.FloatTensor(EOS_mask)
                 EOS_mask = EOS_mask.unsqueeze(1).expand_as(output)
                 output = EOS_mask * output
 
@@ -150,7 +150,7 @@ class CaptionGenerator(nn.Module):
                 beam_output_list.append(output)
 
                 caption_lens = [ [ idx.item() for idx in caption ].index(EOS_idx) + 1 if EOS_idx in [ idx.item() for idx in caption ] else t + 1 for caption in caption_list ]
-                caption_lens = torch.cuda.FloatTensor(caption_lens)
+                caption_lens = torch.FloatTensor(caption_lens)
                 normalizing_factor = ((5 + caption_lens) ** alpha) / (6 ** alpha)
                 normalizing_factor = normalizing_factor.unsqueeze(1).expand_as(output)
                 normalized_output = output / normalizing_factor
@@ -193,7 +193,7 @@ class CaptionGenerator(nn.Module):
                 hidden_list = [ ( hidden, context ) for hidden, context in zip(*hidden_list) ]
             else:
                 hidden_list = [ torch.stack(topk_hidden, dim=1) for topk_hidden in topk_hidden_list ] # width * ( 1, 100, 512 )
-            cum_prob_list = [ torch.cuda.FloatTensor(topk_cum_prob) for topk_cum_prob in topk_cum_prob_list ] # width * ( 100, )
+            cum_prob_list = [ torch.FloatTensor(topk_cum_prob) for topk_cum_prob in topk_cum_prob_list ] # width * ( 100, )
 
         SOS_idx = self.vocab.word2idx['<SOS>']
         outputs = [ [ SOS_idx ] + o[0] for o in output_list ]
